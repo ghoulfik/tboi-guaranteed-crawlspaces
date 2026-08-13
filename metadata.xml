@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+    <name>Guaranteed Crawlspaces</name>
+    <directory>guaranteed-crawlspaces</directory>
+    <description>One crawlspace per floor, the way the game intends - but one you can actually get to.
+
+[h1]The problem[/h1]
+A crawlspace is not placed as a crawlspace. Per floor the engine picks a room and, inside it, a single [b]grid index[/b]. A crawlspace appears only if the rock at that index gets broken.
+
+Nothing checks what is standing on that index. Most of the time it lands on bare floor, on a wall, or on an [b]immovable block[/b] - and there is nothing there to break. The floor's one crawlspace is unreachable, and you never learn it existed.
+
+[h1]The fix[/h1]
+Still one crawlspace per floor. Still dug out of a rock. The difference is that it is guaranteed to be somewhere you can reach:
+[list]
+[*]One room is chosen per floor, from the rooms actually [b]on the map[/b]. Plain rooms are preferred over secret ones, because a crawlspace behind an unbombed wall is only half available.
+[*]In that room, if the engine's own index [b]already holds a breakable rock[/b], it is used unchanged - vanilla works there, and nothing is gained by interfering.
+[*]Otherwise a breakable rock is [b]built on the engine's own index[/b] - on bare floor, or by rebuilding a block, pillar, pit, poop, TNT, web or patch of spikes as a rock.
+[*]Only when that tile cannot be touched does the crawlspace move somewhere else in the room.
+[/list]
+Break the rock, get your crawlspace.
+
+[h1]Correcting the game, not replacing it[/h1]
+The engine's index is read-only - there is no setter for it in the API. So instead of moving the crawlspace to a rock that suits it, this mod puts a rock on the tile the engine [b]already named[/b].
+
+That keeps the game's own answer honest. Anything that reads it - [b]Secrets Reveal[/b]'s buried-crawlspace marker, for one - goes on working, and the game's own crawlspace logic ends up pointed at a rock that can actually be broken.
+
+Room machinery is never overwritten. Doors, trapdoors, stairs, teleporters, pressure plates, locked blocks and statues keep their tile - overwriting one could strand you, void a challenge room's reward, or delete the way out.
+
+[h1]Which rock[/h1]
+When the crawlspace does have to move, it goes under an ordinary breakable - a [b]rock[/b], or the urn / mushroom / skull the floor uses. Rocks that already carry something of their own - tinted, super tinted, golden, bomb rocks, X-marked skulls - are used only when a room offers nothing plainer, so their reward is not spent and Secrets Reveal's tinted-rock marker is not quietly masked.
+
+[h1]Never two[/h1]
+Before anything is armed, the mod reads the floor's room layouts. If the game already builds a crawlspace into one of them, the floor is left completely alone - the check covers rooms you have not walked into yet, so the promise holds however you route through the floor. If the engine's own pick happens to work, that one is used rather than a second being made.
+
+[h1]Faithful to the original[/h1]
+[list]
+[*]The room comes from the level's own crawlspace-placement seed, and the rock from the room's decoration seed, so neither moves between visits.
+[*]A rock you have already dug out stays dug out; re-entering restores the crawlspace instead of re-burying it.
+[*][b]One per floor[/b] by default: once you have gone down, that floor is done, so what is at the bottom cannot be re-rolled by walking out and back in. Switch it off if you want exactly that.
+[/list]
+
+[h1]Settings[/h1]
+Through Mod Config Menu, all optional:
+[list]
+[*][b]Guarantee[/b] - the master switch
+[*][b]Bring a rock[/b] - place one when the chosen room has none. This is what turns "usually" into "guaranteed".
+[*][b]Special rooms[/b] - let it land in a Shop, Treasure, Boss, Devil, Angel room and the rest
+[*][b]Starting room[/b] - let it land in the room the floor begins in
+[*][b]Only once cleared[/b] - arm the rock after the room is cleared rather than on entry
+[*][b]One per floor[/b] - do not replace a crawlspace you have gone down
+[/list]
+
+Lua only. No content overrides, no entities added, no room layouts touched. It does [b]not[/b] disable achievements.
+
+Mod Config Menu is optional. Without it the defaults apply.</description>
+    <version>1.0</version>
+    <visibility>Public</visibility>
+    <tag id="Lua"/>
+    <tag id="Tweaks"/>
+</metadata>

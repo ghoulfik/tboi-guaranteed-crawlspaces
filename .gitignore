@@ -1,0 +1,11 @@
+# Written by the game when the mod is toggled off in the Mods menu
+disable.it
+
+# Steam Workshop upload metadata
+metadata.vdf
+
+# OS / editor noise
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
