@@ -58,7 +58,7 @@ Through Mod Config Menu, all optional:
 Lua only. No content overrides, no entities added, no room layouts touched. It does [b]not[/b] disable achievements.
 
 Mod Config Menu is optional. Without it the defaults apply.</description>
-    <version>1.1</version>
+    <version>1.0</version>
     <visibility>Public</visibility>
     <tag id="Lua"/>
     <tag id="Tweaks"/>
