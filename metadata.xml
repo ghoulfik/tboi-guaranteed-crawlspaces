@@ -62,4 +62,9 @@ Mod Config Menu is optional. Without it the defaults apply.</description>
     <visibility>Public</visibility>
     <tag id="Lua"/>
     <tag id="Tweaks"/>
+    <!-- Steam Workshop item id. Tracked deliberately: the in-game uploader
+         updates this item only while the id is present, and creates a
+         duplicate without it. tools/install.ps1 carries it into the game
+         folder. -->
+    <id>3784883437</id>
 </metadata>
