@@ -329,13 +329,30 @@ tools/run_tests.py     runs the harness under lupa
 
 ## Installation
 
-Copy `main.lua` and `metadata.xml` into:
-
 ```
-...\steamapps\common\The Binding of Isaac Rebirth\mods\guaranteed-crawlspaces
+powershell -ExecutionPolicy Bypass -File tools\install.ps1
 ```
 
 Then enable it in the in-game Mods menu.
+
+### Do not copy metadata.xml by hand
+
+Steam records the Workshop item id in `metadata.xml` as `<id>`, and the in-game
+uploader decides **"update the existing item"** or **"create a brand new one"**
+purely from that value.
+
+Overwrite the installed `metadata.xml` without carrying the id across, and the
+next upload silently publishes a *duplicate* — leaving the original stranded
+with its subscribers, ratings and comments.
+
+`tools/install.ps1` exists to prevent exactly that. It copies the mod across
+while settling the id: a real id in the repo wins, otherwise the installed one is
+kept, and a real id is never replaced by a missing one or by Isaac's `0`
+placeholder.
+
+Once the mod has been published, **commit the id into this repo's
+`metadata.xml`** so it is tracked rather than living only inside the game folder,
+where a reinstall or a clean clone can lose it.
 
 ## Compatibility
 
