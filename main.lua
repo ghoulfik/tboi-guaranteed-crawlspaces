@@ -66,6 +66,7 @@ end
 local GRID_STAIRS    = gridType("GRID_STAIRS", 18)
 local GRID_ROCK      = gridType("GRID_ROCK", 2)
 local COLLISION_NONE = (GridCollisionClass and GridCollisionClass.COLLISION_NONE) or 0
+local COLLISION_PIT  = (GridCollisionClass and GridCollisionClass.COLLISION_PIT) or 1
 local NUM_DOOR_SLOTS = (DoorSlot and DoorSlot.NUM_DOOR_SLOTS) or 8
 local ENTITY_PICKUP  = (EntityType and EntityType.ENTITY_PICKUP) or 5
 local ENTITY_SLOT    = (EntityType and EntityType.ENTITY_SLOT) or 6
@@ -500,6 +501,10 @@ local function intactRocks(room)
   return special
 end
 
+-- Declared here because findTile below consults it, while its definition sits
+-- with the rest of the connectivity checks further down.
+local wouldIsolate
+
 --- Every tile a rock could be planted on, with the measurements the relaxation
 -- passes filter on.
 --
@@ -571,7 +576,112 @@ local function findTile(room)
   end
 
   if viable == nil or #viable == 0 then return nil end
-  return viable[roomRNG(room):RandomInt(#viable) + 1].index
+
+  -- One RNG for the whole search rather than one per draw: a fresh RNG reseeded
+  -- from the room would return the same pick forever.
+  --
+  -- Tiles that would sever the room are struck off and the draw repeats, so a
+  -- room whose only comfortable spots are all bridges still ends up with a
+  -- worse-placed rock rather than a run-ending one.
+  local rng = roomRNG(room)
+  while #viable > 0 do
+    local pick = rng:RandomInt(#viable) + 1
+    local tile = viable[pick]
+    if not wouldIsolate(room, tile.index) then return tile.index end
+    table.remove(viable, pick)
+  end
+
+  return nil
+end
+
+----------------------------------------------------------------------
+-- Not cutting the room in half
+----------------------------------------------------------------------
+
+--- Whether a tile can be crossed. Pits are the reason this takes `flying`:
+-- they stop a walking player and not a flying one, so a room can be connected
+-- one way and severed the other.
+local function passable(room, index, flying)
+  local collision = room:GetGridCollision(index)
+  if collision == COLLISION_NONE then return true end
+  if flying and collision == COLLISION_PIT then return true end
+  return false
+end
+
+--- Flood fill across passable tiles from `seeds`, pretending `blocked` is solid.
+local function reachableFrom(room, seeds, blocked, flying)
+  local width = room:GetGridWidth()
+  local size = room:GetGridSize()
+
+  local seen, stack = {}, {}
+  for _, seed in ipairs(seeds) do
+    if seed ~= blocked and seed >= 0 and seed < size
+        and passable(room, seed, flying) then
+      seen[seed] = true
+      stack[#stack + 1] = seed
+    end
+  end
+
+  while #stack > 0 do
+    local index = stack[#stack]
+    stack[#stack] = nil
+
+    -- Four-neighbourhood, with the row edges guarded so a step off the left of
+    -- one row does not wrap onto the right of the row above.
+    local x = index % width
+    local neighbours = {}
+    if x > 0 then neighbours[#neighbours + 1] = index - 1 end
+    if x < width - 1 then neighbours[#neighbours + 1] = index + 1 end
+    if index - width >= 0 then neighbours[#neighbours + 1] = index - width end
+    if index + width < size then neighbours[#neighbours + 1] = index + width end
+
+    for _, n in ipairs(neighbours) do
+      if not seen[n] and n ~= blocked and passable(room, n, flying) then
+        seen[n] = true
+        stack[#stack + 1] = n
+      end
+    end
+  end
+
+  return seen
+end
+
+--- Whether putting a rock on `index` would cut the player off from anywhere
+-- they can currently get to.
+--
+-- This is the check that distance from the doors cannot make. A room can be a
+-- single one-tile bridge between two doors, with the bridge nowhere near
+-- either of them: every clearance rule passes, and a rock there ends the run
+-- for anyone out of bombs. So rather than reasoning about doors, this floods
+-- the room before and after and refuses anything that shrinks what is
+-- reachable.
+--
+-- Run twice, because "reachable" is not one question. A walking player is
+-- stopped by pits and a flying one is not, so a rock replacing a pit costs a
+-- flying player a route while changing nothing on foot. Either loss is a
+-- refusal.
+function wouldIsolate(room, index)
+  local seeds = {}
+  for _, pos in ipairs(playerPositions()) do
+    local ok, seed = pcall(function() return room:GetGridIndex(pos) end)
+    if ok and type(seed) == "number" and seed >= 0 then
+      seeds[#seeds + 1] = seed
+    end
+  end
+
+  -- With nobody to measure from there is nothing meaningful to compare, so this
+  -- abstains rather than guessing; the clearance rules still apply.
+  if #seeds == 0 then return false end
+
+  for _, flying in ipairs({ false, true }) do
+    local before = reachableFrom(room, seeds, nil, flying)
+    local after  = reachableFrom(room, seeds, index, flying)
+    for tile in pairs(before) do
+      if tile ~= index and not after[tile] then return true end
+    end
+  end
+
+  return false
 end
 
 --- Whether a rock could be built on `index` without breaking the room.
@@ -602,6 +712,10 @@ local function canBuildAt(room, index)
   if not room:IsPositionInRoom(pos, 0) then return false end
   if minDistance(pos, doorPositions(room)) < TILE * 1.5 then return false end
   if minDistance(pos, playerPositions()) < TILE then return false end
+
+  -- Last, because it is the expensive one and the cheap rules reject most tiles
+  -- before it has to run.
+  if wouldIsolate(room, index) then return false end
 
   return true
 end

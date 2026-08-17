@@ -98,6 +98,7 @@ the player in.
 
 | Constraint | Why |
 |---|---|
+| **Cuts nothing off** | See below — this is the one that matters |
 | ≥ 2 tiles from every door | A rock beside a door can seal the room |
 | ≥ 1.5 tiles from every player | Never materialise on top of someone |
 | ≥ 0.75 tiles from pickups, machines and NPCs | Nothing gets covered up |
@@ -105,6 +106,30 @@ the player in.
 | Passes `IsPositionInRoom` | L-shaped rooms have indices inside the grid but outside the room |
 
 The outer ring of the grid is the room's wall and is skipped outright.
+
+### Never severing the room
+
+Distance from the doors is not enough, and assuming it was is how this mod once
+ended runs. A room can be a **single one-tile bridge between two doors**, with
+the bridge nowhere near either of them. Every clearance rule above passes it. A
+rock there strands anyone out of bombs.
+
+So placement does not reason about doors at all. It floods the room from the
+player, before and after, and refuses any tile whose rock would shrink what is
+reachable.
+
+That flood runs **twice**, because "reachable" is not one question:
+
+| Model | Pits are | Catches |
+|---|---|---|
+| Walking | solid | a rock closing the only floor path |
+| Flying | passable | a rock replacing the pit that was the only crossing |
+
+Either loss is a refusal. The second model is why rebuilding a pit as a rock is
+safe: a pit that is somebody's only route stays a pit.
+
+If every comfortable tile in a room turns out to be a bridge, the search strikes
+them off and keeps drawing — a worse-placed rock beats a run-ending one.
 
 ### Relaxation, not refusal
 
@@ -266,7 +291,7 @@ pip install lupa
 python tools/run_tests.py
 ```
 
-86 checks, including:
+90 checks, including:
 
 - exactly **one** crawlspace per floor, in a plain room, never in an off-grid one
 - the same room and rock chosen regardless of the order the floor is walked
@@ -281,6 +306,9 @@ python tools/run_tests.py
 - a layout crawlspace suppressing the mod **even in a room never visited**, while
   one in an off-grid room correctly does not
 - planting when a room has nothing, with door and player clearance verified
+- **never severing a room** — a one-tile bridge between two doors is refused, the
+  engine's own index cannot override the check, and a pit that is the only
+  flying route is not rebuilt as a rock
 - restoring a dug-out crawlspace, and the used-floor rule
 - the reading surface: naming a room on entry, `-1` outside the chosen room,
   `-1` once dug out, `-1` while disabled

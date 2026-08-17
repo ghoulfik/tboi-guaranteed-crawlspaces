@@ -26,6 +26,11 @@ That keeps the game's own answer honest. Anything that reads it - [b]Secrets Rev
 
 Room machinery is never overwritten. Doors, trapdoors, stairs, teleporters, pressure plates, locked blocks and statues keep their tile - overwriting one could strand you, void a challenge room's reward, or delete the way out.
 
+[h1]It will not block your way[/h1]
+A rock is only ever built where it [b]cuts nothing off[/b]. Rather than measuring distance from the doors - which says nothing about a one-tile bridge in the middle of a room - the mod floods the room before and after, and refuses any spot that would shrink what you can reach.
+
+That is checked twice: once as a walking player, for whom pits are solid, and once as a flying one, for whom they are not. So the pit that happens to be your only crossing stays a pit.
+
 [h1]Which rock[/h1]
 When the crawlspace does have to move, it goes under an ordinary breakable - a [b]rock[/b], or the urn / mushroom / skull the floor uses. Rocks that already carry something of their own - tinted, super tinted, golden, bomb rocks, X-marked skulls - are used only when a room offers nothing plainer, so their reward is not spent and Secrets Reveal's tinted-rock marker is not quietly masked.
 
@@ -53,7 +58,7 @@ Through Mod Config Menu, all optional:
 Lua only. No content overrides, no entities added, no room layouts touched. It does [b]not[/b] disable achievements.
 
 Mod Config Menu is optional. Without it the defaults apply.</description>
-    <version>1.0</version>
+    <version>1.1</version>
     <visibility>Public</visibility>
     <tag id="Lua"/>
     <tag id="Tweaks"/>

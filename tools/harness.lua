@@ -29,7 +29,10 @@ GridEntityType = {
   GRID_STAIRS = 18, GRID_ROCK_SS = 22, GRID_PILLAR = 24,
   GRID_ROCK_SPIKED = 25, GRID_ROCK_ALT2 = 26, GRID_ROCK_GOLD = 27,
 }
-GridCollisionClass = { COLLISION_NONE = 0 }
+GridCollisionClass = {
+  COLLISION_NONE = 0, COLLISION_PIT = 1, COLLISION_OBJECT = 2,
+  COLLISION_SOLID = 3, COLLISION_WALL = 5,
+}
 DoorSlot = { NUM_DOOR_SLOTS = 8 }
 EntityType = { ENTITY_PICKUP = 5, ENTITY_SLOT = 6, ENTITY_EFFECT = 1000 }
 EffectVariant = { POOF01 = 15 }
@@ -145,12 +148,21 @@ function room:GetGridEntity(i)
   return { State = g.state, GetType = function() return g.type end,
            PostInit = function() end }
 end
+-- Real collision classes, not just "blocked": pits have to be distinguishable
+-- so the flying / walking connectivity models differ the way they do in game.
 function room:GetGridCollision(i)
   local x, y = i % W, math.floor(i / W)
-  if x == 0 or x == W - 1 or y == 0 or y == H - 1 then return 1 end
-  if cur().grid[i] then return 1 end
-  return 0
+  if x == 0 or x == W - 1 or y == 0 or y == H - 1 then return 5 end   -- wall
+
+  local g = cur().grid[i]
+  if g == nil then return 0 end
+  if g.type == 7 then return 1 end                                    -- pit
+  if g.type == 18 then return 0 end                                   -- crawlspace
+  if g.type == 8 or g.type == 9 or g.type == 10 then return 0 end     -- spikes, web
+  if g.type == 1 then return 0 end                                    -- decoration
+  return 2
 end
+function room:GetGridIndex(pos) return indexOfPos(pos) end
 function room:IsPositionInRoom(p, m) return true end
 function room:RemoveGridEntity(i, pathTrail, keepDecoration) cur().grid[i] = nil end
 function room:GetDoor(slot)
@@ -785,6 +797,85 @@ end
 sweepFloor()
 check("an immovable block alone is not treated as breakable",
       #rocks() == 1, "planted " .. #rocks())
+
+----------------------------------------------------------------------
+-- 20. A rock must never cut the room in half.
+----------------------------------------------------------------------
+-- The reported soft-lock: a room that is all pit except one row of floor
+-- bridging the left and right doors. A rock on that row strands anyone
+-- without bombs. The bridge is nowhere near either door, so every clearance
+-- rule passes it -- only the connectivity check catches it.
+local BRIDGE_ROW = 4
+local function buildBridgeFloor()
+  world.reset()
+  world.addRoom(0, T.DEFAULT, 4)
+  world.addRoom(1, T.DEFAULT, 5)
+  for _, li in ipairs(world.order) do
+    local r = world.rooms[li]
+    r.doors = { 0, 2 }
+    for i = 0, W * H - 1 do
+      local x, y = i % W, math.floor(i / W)
+      if x > 0 and x < W - 1 and y > 0 and y < H - 1 and y ~= BRIDGE_ROW then
+        r.grid[i] = { type = 7, state = 0 }        -- pit
+      end
+    end
+  end
+  -- Stand the player on the bridge, at the left end.
+  world.players = { Vector(2 * 40, BRIDGE_ROW * 40) }
+end
+
+buildBridgeFloor(); startRun(false)
+sweepFloor()
+local onBridge = false
+for _, s in ipairs(world.spawned) do
+  if math.floor(s.index / W) == BRIDGE_ROW then onBridge = true end
+end
+check("no rock is placed on the only bridge between two doors", not onBridge,
+      "spawned " .. #world.spawned .. " grid entities")
+
+-- The pit-replacement path must respect it too: the engine naming a bridge
+-- tile must not license building there.
+buildBridgeFloor(); startRun(false)
+local BRIDGE_TILE = idxOf(7, BRIDGE_ROW)
+for _, li in ipairs(world.order) do world.rooms[li].dungeonIdx = BRIDGE_TILE end
+sweepFloor()
+local builtOnBridgeTile = false
+for _, s in ipairs(world.spawned) do
+  if s.index == BRIDGE_TILE and s.type == 2 then builtOnBridgeTile = true end
+end
+check("the engine's index does not override the connectivity check",
+      not builtOnBridgeTile)
+
+-- A rock replacing a pit must not sever a route only a flying player has.
+-- Two floor islands joined solely by a one-tile pit crossing.
+world.reset()
+world.addRoom(0, T.DEFAULT, 4)
+local r0 = world.rooms[0]
+r0.doors = { 0, 2 }
+for i = 0, W * H - 1 do
+  local x, y = i % W, math.floor(i / W)
+  if x > 0 and x < W - 1 and y > 0 and y < H - 1 then
+    if x == 7 and y ~= BRIDGE_ROW then r0.grid[i] = { type = 3, state = 0 } end
+  end
+end
+local CROSSING = idxOf(7, BRIDGE_ROW)
+r0.grid[CROSSING] = { type = 7, state = 0 }        -- the sole crossing, a pit
+r0.dungeonIdx = CROSSING
+world.players = { Vector(3 * 40, BRIDGE_ROW * 40) }
+startRun(false)
+sweepFloor()
+local pavedCrossing = false
+for _, s in ipairs(world.spawned) do
+  if s.index == CROSSING and s.type == 2 then pavedCrossing = true end
+end
+check("a pit that is the only flying route is not rebuilt as a rock",
+      not pavedCrossing)
+
+-- Sanity: an ordinary open room is unaffected by all of this.
+buildFloor(true); startRun(false)
+sweepFloor()
+check("an open room still gets its rock", #rocks() == 1,
+      "planted " .. #rocks())
 
 print(string.format("\n%d passed, %d failed", passes, failures))
 os.exit(failures == 0 and 0 or 1)
