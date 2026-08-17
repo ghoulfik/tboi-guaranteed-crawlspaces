@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <metadata>
     <name>Guaranteed Crawlspaces</name>
     <directory>guaranteed-crawlspaces</directory>
@@ -62,9 +62,14 @@ Mod Config Menu is optional. Without it the defaults apply.</description>
     <visibility>Public</visibility>
     <tag id="Lua"/>
     <tag id="Tweaks"/>
-    <!-- Steam Workshop item id. Tracked deliberately: the in-game uploader
-         updates this item only while the id is present, and creates a
-         duplicate without it. tools/install.ps1 carries it into the game
-         folder. -->
-    <id>3784883437</id>
+    <!-- No <id> yet: this mod has never been published, so the uploader must
+         CREATE the item rather than update one. An id recorded here that Steam
+         does not have makes the uploader fail with "Error (9) - File not
+         found".
+
+         After the first successful upload, run
+             tools\install.ps1 -Capture
+         to record the id Steam assigns, and commit it. From then on the id
+         belongs in this file, and install.ps1 carries it into the game folder
+         so a reinstall or a fresh clone cannot lose it. -->
 </metadata>

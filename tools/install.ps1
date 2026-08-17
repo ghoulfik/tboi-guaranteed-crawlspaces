@@ -14,8 +14,17 @@
 #
 # Run:  powershell -ExecutionPolicy Bypass -File tools\install.ps1
 
+#   -Reset    strip the id from both copies, so the next upload CREATES a new
+#             item. Needed when the recorded id points at nothing -- the
+#             uploader then fails with "Error (9) - File not found", because it
+#             is trying to update an item Steam does not have.
+#   -Capture  copy the id Steam wrote into the game folder back into the repo.
+#             Run this once after the first successful upload.
+
 param(
-  [string]$GameDir = "C:\Program Files (x86)\Steam\steamapps\common\The Binding of Isaac Rebirth"
+  [string]$GameDir = "C:\Program Files (x86)\Steam\steamapps\common\The Binding of Isaac Rebirth",
+  [switch]$Reset,
+  [switch]$Capture
 )
 
 $ErrorActionPreference = 'Stop'
@@ -42,11 +51,34 @@ function Get-WorkshopId([string]$path) {
 }
 
 $destMeta = Join-Path $dest 'metadata.xml'
-$repoId      = Get-WorkshopId (Join-Path $root 'metadata.xml')
+$repoMeta = Join-Path $root 'metadata.xml'
+$repoId      = Get-WorkshopId $repoMeta
 $installedId = Get-WorkshopId $destMeta
-$keepId      = if ($repoId) { $repoId } else { $installedId }
 
-$xml = Get-Content (Join-Path $root 'metadata.xml') -Raw
+function Set-RepoId([string]$id) {
+  $t = Get-Content $repoMeta -Raw
+  $t = [regex]::Replace($t, '[ \t]*<id>\s*\d*\s*</id>\r?\n', '')
+  if ($id) { $t = $t -replace '</metadata>', "    <id>$id</id>`r`n</metadata>" }
+  Set-Content -Path $repoMeta -Value $t -Encoding utf8 -NoNewline
+}
+
+if ($Capture) {
+  if (-not $installedId) { throw "nothing to capture: the installed metadata.xml has no real <id> yet" }
+  Set-RepoId $installedId
+  Write-Host "captured workshop id $installedId into the repo"
+  $repoId = $installedId
+}
+
+if ($Reset) {
+  Set-RepoId $null
+  $repoId = $null
+  $installedId = $null
+  Write-Host "workshop id cleared - the next upload will CREATE a new item"
+}
+
+$keepId = if ($repoId) { $repoId } else { $installedId }
+
+$xml = Get-Content $repoMeta -Raw
 
 # Normalise: strip any id the repo copy carries, then re-add the one we settled
 # on, so the result has exactly one <id> in a predictable place.
@@ -57,6 +89,12 @@ if ($keepId) {
 
 Set-Content -Path $destMeta -Value $xml -Encoding utf8 -NoNewline
 Copy-Item (Join-Path $root 'main.lua') $dest -Force
+
+# The uploader asks for the preview image through a file dialog that opens in
+# the mod folder, so putting a copy there saves hunting for it. Costs subscribers
+# ~80 KB and nothing else.
+$preview = Join-Path $root 'workshop\preview.png'
+if (Test-Path $preview) { Copy-Item $preview $dest -Force }
 
 Write-Host "installed -> $dest"
 if ($keepId) {
