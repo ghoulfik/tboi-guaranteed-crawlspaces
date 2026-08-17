@@ -5,9 +5,20 @@ in `metadata.xml`, which is what the Steam Workshop shows.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [1.0] — 2026-08-17
+## [1.2] — 2026-08-17
 
-Initial release.
+### Fixed
+
+- **A crawlspace rock could block the only way through a room.** In a room whose
+  two doors are joined by a single one-tile bridge, the rock could land on the
+  bridge, stranding a player with no bombs. Placement now floods the room before
+  and after and refuses any spot that would shrink what can be reached — checked
+  once as a walking player, for whom pits are solid, and once as a flying one,
+  for whom they are not. So a pit that is the only crossing also stays a pit.
+
+## [1.1] — 2026-08-17
+
+Initial release, published privately.
 
 ### What it does
 
@@ -27,10 +38,6 @@ Initial release.
 
 ### Safety rules
 
-- A rock is never built where it would cut anything off. Placement floods the
-  room before and after and refuses any tile that would shrink what the player
-  can reach — checked once for a walking player, for whom pits are solid, and
-  once for a flying one, for whom they are not.
 - Room machinery is never overwritten: doors, trapdoors, stairs, teleporters,
   pressure plates, locked blocks and statues keep their tile.
 - Rocks keep clear of doors, of the players, and of pickups, machines and NPCs.
@@ -42,4 +49,5 @@ Initial release.
   engine's index. [Secrets Reveal](https://github.com/ghoulfik/tboi-secrets-reveal)
   reads both, from its own 1.1.
 
-[1.0]: https://github.com/ghoulfik/tboi-guaranteed-crawlspaces/releases/tag/v1.0
+[1.2]: https://github.com/ghoulfik/tboi-guaranteed-crawlspaces/releases/tag/v1.2
+[1.1]: https://github.com/ghoulfik/tboi-guaranteed-crawlspaces/releases/tag/v1.1
